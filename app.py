@@ -325,17 +325,13 @@ def visualizations():
 
     # Drop rows with invalid dates (if any)
     df.dropna(subset=['transaction_date'], inplace=True)
-
     # Ensure amount is numeric
     df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
-
     # Drop rows with NaN in amount
     df.dropna(subset=['amount'], inplace=True)
-
     # Summary statistics
     summary_stats = df[['amount']].describe()
     print(summary_stats)
-
     # Visualization 1: Transaction type distribution
     transaction_type_counts = df['transaction_type'].value_counts()
     plt.figure()
@@ -345,11 +341,9 @@ def visualizations():
     plt.ylabel("Count")
     plt.savefig('static/transaction_type_distribution.png')
     plt.close()
-
     # Visualization 2: Monthly amount distribution by type
     df['month'] = df['transaction_date'].dt.strftime('%B')
     monthly_amount_by_type = df.groupby(['month', 'transaction_type'])['amount'].sum().unstack().fillna(0)
-
     # Ensure that monthly_amount_by_type contains numeric data
     if not monthly_amount_by_type.empty:
         plt.figure(figsize=(12, 6))
@@ -372,9 +366,7 @@ def visualizations():
     plt.legend(title='Account ID')
     plt.savefig('static/countplot_account_by_type.png')
     plt.close()
-
     return render_template('transaction analysis.html', summary=summary_stats.to_html(classes='table table-striped'))
-
 
 def detect_anomalies(df):
     # Load your model
@@ -392,26 +384,20 @@ def detect_anomalies(df):
 
     # Predict anomalies
     df['anomaly'] = model.predict(pd.DataFrame(model_df['TransactionAmount']))
-
     # Extract anomalies
     anomalies = df[df['anomaly'] == -1]
     return anomalies
-
 @app.route('/anomalies')
 @login_required
 def anomalies():
     if current_user.role not in ['Auditor', 'Finance Officer']:
         return jsonify({"msg": "Unauthorized"}), 403
-
     df = fetch_transactions()
     if df is None or df.empty:
         return render_template('anomaly_analysis.html', error="No transaction data available for analysis.")
-
     # Detect anomalies
     anomalies = detect_anomalies(df)
-
     return render_template('anomaly.html', anomalies=anomalies)
-
 # Auditor Dashboard
 @app.route('/auditor_dashboard')
 @login_required
@@ -419,15 +405,6 @@ def auditor_dashboard():
     if current_user.role != 'Auditor':
         return jsonify({"msg": "Unauthorized"}), 403
     return render_template('Auditor.html')
-
-
-@app.route('/Back')
-def back():
-    referrer = request.headers.get('Referer')
-    if referrer:
-        return redirect(referrer)
-    else:
-        return redirect(url_for('home'))
 
 
 if __name__ == '__main__':
