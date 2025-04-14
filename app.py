@@ -10,26 +10,20 @@ from datetime import datetime, timedelta, timezone
 from sklearn.preprocessing import LabelEncoder
 from supabase import create_client, Client
 import httpx  # Import httpx
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=4)
-
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
 # Supabase setup
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Supabase URL and Key must be set as environment variables.")
-
 # Initialize Supabase client.  Handle the httpx import error.
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) # Removed http_client
-
 class User(UserMixin):
     def __init__(self, user_id, username, password, role):
         self.user_id = user_id
@@ -37,17 +31,12 @@ class User(UserMixin):
         self.password = password
         self.role = role
         print(f"User object created with role: {self.role}")
-
     def __repr__(self):
         return f'<User(username={self.username}, role={self.role})>'
-
     def check_password(self, password):
         return check_password_hash(self.password, password)
-
     def get_id(self):
         return str(self.user_id)
-
-
 @login_manager.user_loader
 def load_user(user_id):
     try:
@@ -65,9 +54,6 @@ def load_user(user_id):
     except Exception as e:
         print(f"Error loading user: {e}")
         return None
-
-
-
 @app.before_request
 def before_request():
     session.permanent = True
@@ -80,14 +66,10 @@ def before_request():
             logout_user()
             return redirect(url_for('login', message='Session timed out. Please log in again.'))
     session['last_activity'] = datetime.utcnow()
-
-
 # Routes
 @app.route('/')
 def home():
     return render_template('home.html')
-
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -135,16 +117,12 @@ def login():
             print(f"Error during login: {e}")
             return render_template('Login1.html', error="Database error during login.")
     return render_template('Login1.html')
-
-
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     session.pop('last_activity', None)
     return redirect(url_for('home'))
-
-
 # Admin functionalities
 @app.route('/admin_dashboard')
 @login_required
@@ -153,13 +131,11 @@ def admin_dashboard():
         return jsonify({"msg": "Unauthorized"}), 403
     else:
         return render_template('admin.html')
-
 @app.route('/add_user', methods=['GET', 'POST'])
 @login_required
 def add_user():
     if current_user.role != 'Admin':
         return jsonify({"msg": "Unauthorized"}), 403
-
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -181,7 +157,6 @@ def add_user():
                     'role': role
                 }
                 response = supabase.table('users').insert(user_data).execute()
-
                 if response.error:
                     raise Exception(response.error)
                 return render_template('admin.html', message="User added successfully!")
@@ -190,26 +165,19 @@ def add_user():
                 return render_template('add user.html', error=f"Database error adding user: {e}")
         return render_template('add user.html', error="All fields are required.")
     return render_template('add user.html')
-
-
 @app.route('/view_transactions', methods=['GET'])
 def view_transactions():
     try:
         # Fetch transactions from Supabase
         response = supabase.table('transactions').select('*').execute()
         transactions_data = response.data
-
         # Convert to DataFrame
         transactions_df = pd.DataFrame(transactions_data)
-
         # Render template
         return render_template('view transaction.html', transactions=transactions_df.to_dict(orient='records'))
     except Exception as e:
         print(f"Error fetching transactions: {e}")
         return jsonify({'error': "Database error fetching transactions."}), 500
-
-
-
 @app.route('/add_transaction', methods=['GET', 'POST'])
 @login_required
 def add_transaction():
@@ -219,7 +187,6 @@ def add_transaction():
         amount = request.form.get('amount')
         transaction_type = request.form.get('transaction_type')
         transaction_purpose = request.form.get('transaction_purpose')
-
         if account_id and transaction_date and amount and transaction_type:
             try:
                 # Get next transaction ID
@@ -227,7 +194,6 @@ def add_transaction():
                 last_transaction_id = response.data[0]['transaction_id'] if response.data else 'TX00000'
                 next_transaction_id_number = int(last_transaction_id[2:]) + 1
                 transaction_id = f"TX{next_transaction_id_number:05d}"
-
                 # Insert transaction into Supabase
                 transaction_data = {
                     'transaction_id': transaction_id,
@@ -240,18 +206,13 @@ def add_transaction():
                 response = supabase.table('transactions').insert(transaction_data).execute()
                 if response.error:
                     raise Exception(response.error)
-
                 print("Transaction added successfully!", "success")
                 return redirect(url_for('finance_officer_dashboard'))
             except Exception as e:
                 print(f"Error adding transaction: {e}")
                 return render_template('add transaction.html', error=f"Database error adding transaction: {e}")
-
         return render_template('add transaction.html', error="All fields are required.")
-
     return render_template('add transaction.html')
-
-
 @app.route('/view_users')
 @login_required
 def view_users():
@@ -261,22 +222,18 @@ def view_users():
         # Fetch users from Supabase
         response = supabase.table('users').select('user_id, username, role').execute()
         users_data = response.data
-
         # Convert to DataFrame
         users_df = pd.DataFrame(users_data)
         return render_template('view users1.html', users=users_df.to_dict(orient='records'))
     except Exception as e:
         print(f"Error fetching users: {e}")
         return jsonify({'error': "Database error fetching users."}), 500
-    
-
 @app.route('/change_password', methods=['GET', 'POST'])
 @login_required
 def change_password():
     if request.method == 'POST':
         current_password = request.form.get('current_password')
         new_password = request.form.get('new_password')
-
         # Check if the current password is correct
         if check_password_hash(current_user.password, current_password):
             hashed_new_password = generate_password_hash(new_password)
@@ -294,9 +251,7 @@ def change_password():
         else:
             print("Current password is incorrect.", "danger")
             return render_template('change password.html')
-
     return render_template('change password.html')
-
 # Finance Officer Dashboard
 @app.route('/finance_officer_dashboard')
 @login_required
@@ -304,25 +259,20 @@ def finance_officer_dashboard():
     if current_user.role != 'Finance Officer':
         return jsonify({"msg": "Unauthorized"}), 403
     return render_template('finance.html')
-
 def fetch_transactions():
     response = supabase.table('transactions').select('*').execute()
     df = pd.DataFrame(response.data)
     return df
-
 @app.route('/visualizations')
 @login_required
 def visualizations():
     if current_user.role not in ['Auditor', 'Finance Officer']:
         return jsonify({"msg": "Unauthorized"}), 403
-
     df = fetch_transactions()
     if df is None or df.empty:
         return render_template('transaction analysis.html', error="No transaction data available for visualization.")
-
     # Convert transaction_date to datetime format
     df['transaction_date'] = pd.to_datetime(df['transaction_date'], errors='coerce')
-
     # Drop rows with invalid dates (if any)
     df.dropna(subset=['transaction_date'], inplace=True)
     # Ensure amount is numeric
@@ -367,21 +317,17 @@ def visualizations():
     plt.savefig('static/countplot_account_by_type.png')
     plt.close()
     return render_template('transaction analysis.html', summary=summary_stats.to_html(classes='table table-striped'))
-
 def detect_anomalies(df):
     # Load your model
     with open('final_model.pkl', 'rb') as file:
         model = pickle.load(file)
-
     # Encode transaction_type
     le = LabelEncoder()
     df['transaction_type_encoded'] = le.fit_transform(df['transaction_type'])
     model_df=pd.DataFrame(df['amount'])
     model_df['TransactionAmount']=model_df
-
     # Prepare data for prediction
     features = df[['transaction_type_encoded', 'amount']]
-
     # Predict anomalies
     df['anomaly'] = model.predict(pd.DataFrame(model_df['TransactionAmount']))
     # Extract anomalies
@@ -405,7 +351,5 @@ def auditor_dashboard():
     if current_user.role != 'Auditor':
         return jsonify({"msg": "Unauthorized"}), 403
     return render_template('Auditor.html')
-
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
